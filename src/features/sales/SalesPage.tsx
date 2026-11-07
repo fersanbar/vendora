@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, ChevronRight, Plus, Receipt } from 'lucide-react'
+import { Plus, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { etiquetaPeriodo, formatearFecha, hoyLocal, moverPeriodo, periodoActual } from '@/lib/dates'
-import { calcularVenta, formatMXN, sumar } from '@/lib/money'
+import { NavegadorMes } from '@/components/NavegadorMes'
+import { formatearFecha, hoyLocal, periodoActual } from '@/lib/dates'
+import { calcularPedido, formatMXN, sumar } from '@/lib/money'
 import { SyncStatus } from '@/features/sync/SyncStatus'
 import { useSync } from '@/features/sync/useSync'
+import { agruparLineas } from './pedidos'
 import { markSaleReleased } from './sales.repo'
 
 export function SalesPage() {
@@ -18,16 +20,25 @@ export function SalesPage() {
     const productos = new Map((await db.products.toArray()).map((p) => [p.id, p.nombre]))
     const canales = new Map((await db.channels.toArray()).map((c) => [c.id, c.nombre]))
     const ventas = (await db.sales.toArray()).filter((v) => v.deleted_at === null)
-    return { productos, canales, ventas }
+    const lineas = agruparLineas(await db.sale_items.toArray())
+    return { productos, canales, ventas, lineas }
   }, [db])
 
   if (datos === undefined) {
     return <div className="m-4 h-24 animate-pulse rounded-xl bg-neutral-100" />
   }
 
-  const { productos, canales, ventas } = datos
+  const { productos, canales, ventas, lineas } = datos
   const hoy = hoyLocal()
-  const calculos = ventas.map((venta) => ({ venta, c: calcularVenta(venta) }))
+
+  const calculos = ventas.map((venta) => {
+    const ls = lineas.get(venta.id) ?? []
+    return {
+      venta,
+      lineas: ls,
+      c: calcularPedido({ lineas: ls, costo_envio: venta.costo_envio, impuestos: venta.impuestos }),
+    }
+  })
 
   const delMes = calculos
     .filter((x) => x.venta.fecha.startsWith(periodo))
@@ -60,7 +71,7 @@ export function SalesPage() {
           <p className={`mt-1 text-lg font-semibold ${utilidadMes < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
             {formatMXN(utilidadMes)}
           </p>
-          {sinCosto > 0 && <p className="mt-1 text-xs text-neutral-500">{sinCosto} sin costo</p>}
+          {sinCosto > 0 && <p className="mt-1 text-xs text-neutral-500">{sinCosto} con costo incompleto</p>}
         </div>
         <div className="col-span-2 rounded-xl border border-neutral-200 p-4">
           <p className="text-xs text-neutral-500">Pendiente de liberar (todas las fechas)</p>
@@ -68,14 +79,8 @@ export function SalesPage() {
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between">
-        <Button variant="outline" size="icon" onClick={() => setPeriodo(moverPeriodo(periodo, -1))} aria-label="Mes anterior">
-          <ChevronLeft className="size-4" />
-        </Button>
-        <p className="font-medium capitalize">{etiquetaPeriodo(periodo)}</p>
-        <Button variant="outline" size="icon" onClick={() => setPeriodo(moverPeriodo(periodo, 1))} aria-label="Mes siguiente">
-          <ChevronRight className="size-4" />
-        </Button>
+      <div className="mt-6">
+        <NavegadorMes periodo={periodo} onChange={setPeriodo} />
       </div>
 
       <div className="mt-4 space-y-2">
@@ -89,7 +94,7 @@ export function SalesPage() {
           </div>
         )}
 
-        {delMes.map(({ venta: v, c }) => {
+        {delMes.map(({ venta: v, lineas: ls, c }) => {
           const pendienteCobro = v.estado_cobro === 'pendiente'
           const vencida = pendienteCobro && v.fecha_liberacion_estimada !== null && v.fecha_liberacion_estimada < hoy
           const textoEstado = pendienteCobro
@@ -98,13 +103,15 @@ export function SalesPage() {
               : 'Pendiente'
             : `Liberado${v.fecha_liberacion_real ? ` el ${formatearFecha(v.fecha_liberacion_real)}` : ''}`
           const principal = c.utilidad ?? c.neto
+          const primero = ls[0] ? (productos.get(ls[0].product_id) ?? 'Producto') : 'Sin productos'
+          const titulo = ls.length > 1 ? `${primero} +${ls.length - 1} más` : primero
 
           return (
             <div key={v.id} className="flex items-center gap-2 rounded-xl border border-neutral-200 pr-3">
               <Link to={`/ventas/${v.id}`} className="flex min-h-16 flex-1 flex-col justify-center px-4 py-2">
-                <span className="font-medium">{productos.get(v.product_id) ?? 'Producto'}</span>
+                <span className="font-medium">{titulo}</span>
                 <span className="text-xs text-neutral-500">
-                  {canales.get(v.channel_id) ?? 'Canal'} · {formatearFecha(v.fecha)} · {v.cantidad} pza
+                  {canales.get(v.channel_id) ?? 'Canal'} · {formatearFecha(v.fecha)} · {c.piezas} pza
                 </span>
                 <span
                   className={`text-xs ${vencida ? 'text-red-600' : pendienteCobro ? 'text-neutral-500' : 'text-emerald-600'}`}

@@ -9,10 +9,13 @@ import {
   calcularMargen,
   calcularNetoConImpuestos,
   formatMXN,
+  parseCosto,
   parseDias,
   parseMonto,
   parsePorcentaje,
 } from '@/lib/money'
+import { setProductCostoReferencia } from '@/features/products/products.repo'
+import { resolverCosto } from '@/features/purchases/costo'
 import { useProductStats } from '@/features/purchases/useProductStats'
 import { useSync } from '@/features/sync/useSync'
 import { useIvaGeneral } from '@/features/taxes/useIvaGeneral'
@@ -25,6 +28,7 @@ interface EstadoImpuesto {
 
 interface Props {
   productId: string
+  costoReferencia: number | null
   listing: LocalListing | null
   opciones: LocalChannel[]
   canalNombre: string | null
@@ -52,6 +56,7 @@ function Linea({
 
 export function ListingForm({
   productId,
+  costoReferencia,
   listing,
   opciones,
   canalNombre,
@@ -62,7 +67,7 @@ export function ListingForm({
   const { db, syncNow } = useSync()
   const ivaGeneral = useIvaGeneral()
   const stats = useProductStats()
-  const costoProm = stats?.get(productId)?.costoPromedio ?? null
+  const costoCompras = stats?.get(productId)?.costoPromedio ?? null
 
   const [canalId, setCanalId] = useState(listing?.channel_id ?? opciones[0]?.id ?? '')
   const [precio, setPrecio] = useState(listing ? String(listing.precio_venta) : '')
@@ -71,6 +76,7 @@ export function ListingForm({
   const [envio, setEnvio] = useState(listing ? String(listing.costo_envio) : '')
   const [dias, setDias] = useState(listing ? String(listing.dias_liberacion) : '')
   const [idExterno, setIdExterno] = useState(listing?.id_externo ?? '')
+  const [costoRef, setCostoRef] = useState(costoReferencia !== null ? String(costoReferencia) : '')
   const [guardando, setGuardando] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +101,8 @@ export function ListingForm({
   const fijoN = parseMonto(cargoFijo)
   const envioN = parseMonto(envio)
   const diasN = parseDias(dias)
+  const costoRefN = costoRef.trim() === '' ? null : parseCosto(costoRef)
+  const costoRefInvalido = costoRef.trim() !== '' && costoRefN === null
 
   const aplicados: { tipo: LocalTaxType; tasa_pct: number }[] = []
   let impuestosOk = true
@@ -120,9 +128,10 @@ export function ListingForm({
         )
       : null
 
+  const costo = resolverCosto(costoCompras, costoRefInvalido ? null : costoRefN)
   const resultado =
-    calculo && precioN !== null && costoProm !== null
-      ? calcularMargen(precioN, calculo.neto, costoProm)
+    calculo && precioN !== null && costo.valor !== null
+      ? calcularMargen(precioN, calculo.neto, costo.valor)
       : null
 
   async function guardar(e: FormEvent) {
@@ -137,6 +146,10 @@ export function ListingForm({
     }
     if (!impuestosOk) {
       setError('Captura la tasa de cada impuesto activado (entre 0 y 100).')
+      return
+    }
+    if (costoRefInvalido) {
+      setError('Revisa el costo de referencia: máximo 4 decimales.')
       return
     }
     setGuardando(true)
@@ -157,6 +170,7 @@ export function ListingForm({
         aplicados.map((a) => ({ tax_type_id: a.tipo.id, tasa_pct: a.tasa_pct })),
         listing?.id,
       )
+      await setProductCostoReferencia(db, productId, costoRefN)
       onDone()
       void syncNow()
     } catch (err) {
@@ -295,9 +309,14 @@ export function ListingForm({
               <p className="text-xs text-neutral-500">Después de comisión, cargos, envío e impuestos.</p>
 
               <div className="space-y-2 border-t border-neutral-200 pt-3">
-                {costoProm !== null && resultado ? (
+                {costo.valor !== null && resultado ? (
                   <>
-                    <Linea etiqueta="Costo promedio del producto" valor={`−${formatMXN(costoProm)}`} />
+                    <Linea
+                      etiqueta={
+                        costo.origen === 'compras' ? 'Costo promedio (tus compras)' : 'Costo de referencia (estimado)'
+                      }
+                      valor={`−${formatMXN(costo.valor)}`}
+                    />
                     <Linea
                       etiqueta="Utilidad"
                       valor={formatMXN(resultado.utilidad)}
@@ -317,10 +336,15 @@ export function ListingForm({
                           : 'font-medium text-emerald-600'
                       }
                     />
+                    {costo.origen === 'referencia' && (
+                      <p className="text-xs text-neutral-500">
+                        Estimado: se reemplaza por el costo real cuando registres compras.
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="text-xs text-neutral-500">
-                    Registra una compra de este producto para ver utilidad, margen y ROI.
+                    Captura un costo de referencia para ver utilidad, margen y ROI sin comprar el producto.
                   </p>
                 )}
               </div>
@@ -328,6 +352,21 @@ export function ListingForm({
           ) : (
             <p className="text-neutral-500">Revisa los números para ver el desglose.</p>
           )}
+        </div>
+
+        <div className="space-y-1">
+          <Campo
+            id="costo-ref"
+            label="Costo de referencia por pieza (opcional)"
+            value={costoRef}
+            onChange={setCostoRef}
+            maxLength={13}
+            inputMode="decimal"
+          />
+          <p className="text-xs text-neutral-500">
+            Es del producto, no del canal: se comparte en todos. Se usa mientras no tengas compras
+            {costoCompras !== null ? '; ahora se usa el costo de tus compras.' : '.'}
+          </p>
         </div>
 
         {error && (

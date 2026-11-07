@@ -127,30 +127,54 @@ export function costoPromedioPonderado(
   return total.dividedBy(cantidad).toDecimalPlaces(4).toNumber()
 }
 
-export interface DatosVenta {
+export interface LineaPedido {
   cantidad: number
   precio_unitario: number
   comision: number
   cargo_fijo: number
-  costo_envio: number
-  impuestos: number
   costo_unitario: number | null
 }
 
-export function calcularVenta(v: DatosVenta): {
+export interface DatosPedido {
+  lineas: LineaPedido[]
+  costo_envio: number
+  impuestos: number
+}
+
+// Pedido: el envío y los impuestos son del pedido completo, no de cada pieza.
+// La utilidad solo se calcula si todas las líneas tienen costo.
+export function calcularPedido(p: DatosPedido): {
+  piezas: number
   ingreso: number
+  cargos: number
   neto: number
   costo: number | null
   utilidad: number | null
   margenPct: number | null
   roiPct: number | null
+  lineasSinCosto: number
 } {
-  const ingreso = new D(v.precio_unitario).times(v.cantidad).toDecimalPlaces(2)
-  const neto = ingreso.minus(v.comision).minus(v.cargo_fijo).minus(v.costo_envio).minus(v.impuestos)
-  const costo = v.costo_unitario === null ? null : new D(v.costo_unitario).times(v.cantidad).toDecimalPlaces(2)
+  const ingreso = p.lineas.reduce(
+    (acc, l) => acc.plus(new D(l.precio_unitario).times(l.cantidad).toDecimalPlaces(2)),
+    new D(0),
+  )
+  const cargos = p.lineas.reduce((acc, l) => acc.plus(l.comision).plus(l.cargo_fijo), new D(0))
+  const neto = ingreso.minus(cargos).minus(p.costo_envio).minus(p.impuestos)
+
+  const lineasSinCosto = p.lineas.filter((l) => l.costo_unitario === null).length
+  const costo =
+    p.lineas.length > 0 && lineasSinCosto === 0
+      ? p.lineas.reduce(
+          (acc, l) => acc.plus(new D(l.costo_unitario ?? 0).times(l.cantidad).toDecimalPlaces(2)),
+          new D(0),
+        )
+      : null
   const utilidad = costo === null ? null : neto.minus(costo)
+
   return {
+    piezas: p.lineas.reduce((acc, l) => acc + l.cantidad, 0),
     ingreso: ingreso.toNumber(),
+    cargos: cargos.toNumber(),
     neto: neto.toNumber(),
     costo: costo === null ? null : costo.toNumber(),
     utilidad: utilidad === null ? null : utilidad.toNumber(),
@@ -162,5 +186,14 @@ export function calcularVenta(v: DatosVenta): {
       utilidad !== null && costo !== null && costo.gt(0)
         ? utilidad.dividedBy(costo).times(100).toDecimalPlaces(1).toNumber()
         : null,
+    lineasSinCosto,
   }
+}
+
+// Existencias contadas: acepta 0
+export function parseExistencias(texto: string): number | null {
+  const t = texto.trim()
+  if (!/^\d{1,6}$/.test(t)) return null
+  const n = Number(t)
+  return n <= 100000 ? n : null
 }

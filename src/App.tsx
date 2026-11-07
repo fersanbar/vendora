@@ -5,7 +5,6 @@ import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { useAuth } from "@/features/auth/useAuth";
 import { ChannelsPage } from "@/features/channels/ChannelsPage";
 import { AppShell } from "@/components/layout/AppShell";
-import { Placeholder } from "@/pages/Placeholder";
 import { ProductsPage } from "@/features/products/ProductsPage";
 import { ProductDetailPage } from "@/features/products/ProductDetailPage";
 import { ChevronRight, Landmark, LogOut, Store } from "lucide-react";
@@ -18,6 +17,9 @@ import { FinanzasPage } from "@/features/finance/FinanzasPage";
 import { ExpensesPage } from "@/features/expenses/ExpensesPage";
 import { ExpenseCategoriesPage } from "@/features/expenses/ExpenseCategoriesPage";
 import { AdsPage } from "@/features/ads/AdsPage";
+import { InicioPage } from "@/features/home/InicioPage";
+import { FlujoPage } from "@/features/finance/FlujoPage";
+import { RentabilidadPage } from "@/features/finance/RentabilidadPage";
 
 function MorePage() {
   const { user, signOut } = useAuth();
@@ -69,15 +71,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppShell />}>
-              <Route
-                index
-                element={
-                  <Placeholder
-                    titulo="Inicio"
-                    detalle="El resumen se construye cuando existan compras y ventas reales."
-                  />
-                }
-              />
+              <Route index element={<InicioPage />} />
               <Route path="inventario" element={<ProductsPage />} />
               <Route path="inventario/:id" element={<ProductDetailPage />} />
               <Route path="inventario/compras" element={<PurchasesPage />} />
@@ -93,6 +87,11 @@ export default function App() {
               <Route path="ventas/nueva" element={<SaleFormPage />} />
               <Route path="ventas/:id" element={<SaleFormPage />} />
               <Route path="finanzas" element={<FinanzasPage />} />
+              <Route path="finanzas/flujo" element={<FlujoPage />} />
+              <Route
+                path="finanzas/rentabilidad"
+                element={<RentabilidadPage />}
+              />
               <Route path="finanzas/gastos" element={<ExpensesPage />} />
               <Route
                 path="finanzas/gastos/categorias"

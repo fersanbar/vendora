@@ -15,7 +15,11 @@ export function useProductStats(): Map<string, ProductoStats> | undefined {
       (await db.purchases.toArray()).filter((c) => c.deleted_at === null).map((c) => [c.id, c]),
     )
     const items = (await db.purchase_items.toArray()).filter((i) => i.deleted_at === null)
-    const ventas = (await db.sales.toArray()).filter((v) => v.deleted_at === null)
+    const ventas = new Map(
+      (await db.sales.toArray()).filter((v) => v.deleted_at === null).map((v) => [v.id, v]),
+    )
+    const lineasVenta = (await db.sale_items.toArray()).filter((i) => i.deleted_at === null)
+    const ajustes = (await db.stock_adjustments.toArray()).filter((a) => a.deleted_at === null)
 
     const porProducto = new Map<string, Evento[]>()
     const agregar = (productId: string, evento: Evento) => {
@@ -35,8 +39,19 @@ export function useProductStats(): Map<string, ProductoStats> | undefined {
         costo_unitario: i.costo_unitario,
       })
     }
-    for (const v of ventas) {
-      agregar(v.product_id, { tipo: 'venta', fecha: v.fecha, creado: v.created_at, cantidad: v.cantidad })
+    for (const i of lineasVenta) {
+      const venta = ventas.get(i.sale_id)
+      if (!venta) continue
+      agregar(i.product_id, { tipo: 'venta', fecha: venta.fecha, creado: venta.created_at, cantidad: i.cantidad })
+    }
+    for (const a of ajustes) {
+      agregar(a.product_id, {
+        tipo: 'ajuste',
+        fecha: a.fecha,
+        creado: a.created_at,
+        cantidad: a.cantidad,
+        costo_unitario: a.costo_unitario,
+      })
     }
 
     const resultado = new Map<string, ProductoStats>()

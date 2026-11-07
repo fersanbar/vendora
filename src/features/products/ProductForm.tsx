@@ -10,6 +10,7 @@ import { Campo } from "@/components/Campo";
 import type { LocalProduct } from "@/lib/db";
 import { useSync } from "@/features/sync/useSync";
 import { deleteProduct, saveProduct } from "./products.repo";
+import { parseCosto } from "@/lib/money";
 
 const vacioANull = (v: string) => (v.trim() === "" ? null : v.trim());
 
@@ -29,11 +30,21 @@ export function ProductForm({
   const [guardando, setGuardando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [costoRef, setCostoRef] = useState(
+    producto && producto.costo_referencia != null
+      ? String(producto.costo_referencia)
+      : "",
+  );
 
   async function guardar(e: FormEvent) {
     e.preventDefault();
     if (!nombre.trim()) {
       setError("El nombre es obligatorio.");
+      return;
+    }
+    const costoRefN = costoRef.trim() === "" ? null : parseCosto(costoRef);
+    if (costoRef.trim() !== "" && costoRefN === null) {
+      setError("Revisa el costo de referencia: máximo 4 decimales.");
       return;
     }
     setGuardando(true);
@@ -47,6 +58,7 @@ export function ProductForm({
           codigo_barras: vacioANull(codigo),
           categoria: vacioANull(categoria),
           notas: vacioANull(notas),
+          costo_referencia: costoRefN,
         },
         producto?.id,
       );
@@ -111,6 +123,14 @@ export function ProductForm({
           onChange={setCodigo}
           maxLength={60}
           inputMode="numeric"
+        />
+        <Campo
+          id="costo-ref"
+          label="Costo de referencia (opcional)"
+          value={costoRef}
+          onChange={setCostoRef}
+          maxLength={13}
+          inputMode="decimal"
         />
         <Campo
           id="notas"

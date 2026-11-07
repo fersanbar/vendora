@@ -32,3 +32,12 @@ export function sumarDias(fecha: string, dias: number): string {
   const f = new Date(y, m - 1, d + dias)
   return `${f.getFullYear()}-${dos(f.getMonth() + 1)}-${dos(f.getDate())}`
 }
+
+export function ultimosPeriodos(periodo: string, cantidad: number): string[] {
+  return Array.from({ length: cantidad }, (_, i) => moverPeriodo(periodo, i - (cantidad - 1)))
+}
+
+export function etiquetaMesCorta(periodo: string): string {
+  const [y, m] = periodo.split('-').map(Number)
+  return new Intl.DateTimeFormat('es-MX', { month: 'short' }).format(new Date(y, m - 1, 1)).replace('.', '')
+}

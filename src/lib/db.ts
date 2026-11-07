@@ -11,6 +11,7 @@ export interface LocalProduct {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  costo_referencia: number | null;
 }
 
 export interface LocalListing {
@@ -100,20 +101,41 @@ export interface LocalPurchaseItem {
 
 export interface LocalSale {
   id: string;
-  product_id: string;
   channel_id: string;
   fecha: string;
-  cantidad: number;
-  precio_unitario: number;
-  comision: number;
-  cargo_fijo: number;
   costo_envio: number;
   impuestos: number;
-  costo_unitario: number | null;
   estado_cobro: "pendiente" | "liberado";
   fecha_liberacion_estimada: string | null;
   fecha_liberacion_real: string | null;
   id_orden: string | null;
+  notas: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LocalSaleItem {
+  id: string;
+  sale_id: string;
+  product_id: string;
+  cantidad: number;
+  precio_unitario: number;
+  comision: number;
+  cargo_fijo: number;
+  costo_unitario: number | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LocalStockAdjustment {
+  id: string;
+  product_id: string;
+  fecha: string;
+  cantidad: number;
+  costo_unitario: number | null;
+  motivo: "inicial" | "conteo" | "devolucion" | "merma" | "regalo" | "otro";
   notas: string | null;
   deleted_at: string | null;
   created_at: string;
@@ -176,7 +198,9 @@ export interface OutboxItem {
     | "sales"
     | "expense_categories"
     | "expenses"
-    | "ad_spends";
+    | "ad_spends"
+    | "sale_items"
+    | "stock_adjustments";
   rowId: string;
   payload: Record<string, unknown>;
   createdAt: string;
@@ -204,6 +228,8 @@ export class VendoraDB extends Dexie {
   expense_categories!: EntityTable<LocalExpenseCategory, "id">;
   expenses!: EntityTable<LocalExpense, "id">;
   ad_spends!: EntityTable<LocalAdSpend, "id">;
+  sale_items!: EntityTable<LocalSaleItem, "id">;
+  stock_adjustments!: EntityTable<LocalStockAdjustment, "id">;
 
   constructor(userId: string) {
     super(`vendora-${userId}`);
@@ -244,6 +270,13 @@ export class VendoraDB extends Dexie {
       expense_categories: "id, updated_at, deleted_at",
       expenses: "id, category_id, fecha, updated_at",
       ad_spends: "id, fecha, channel_id, product_id, updated_at",
+    });
+    this.version(8).stores({
+      sales: "id, channel_id, fecha, updated_at",
+      sale_items: "id, sale_id, product_id, updated_at",
+    });
+    this.version(9).stores({
+      stock_adjustments: "id, product_id, fecha, updated_at",
     });
   }
 }

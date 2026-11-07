@@ -11,6 +11,16 @@ export interface EventoCompra {
   costo_unitario: number
 }
 
+// Ajuste manual: cantidad con signo. Si suma piezas y trae costo, se mezcla como una compra;
+// sin costo entra al costo promedio actual sin moverlo.
+export interface EventoAjuste {
+  tipo: 'ajuste'
+  fecha: string
+  creado: string
+  cantidad: number
+  costo_unitario: number | null
+}
+
 export interface EventoVenta {
   tipo: 'venta'
   fecha: string
@@ -18,7 +28,7 @@ export interface EventoVenta {
   cantidad: number
 }
 
-export type Evento = EventoCompra | EventoVenta
+export type Evento = EventoCompra | EventoAjuste | EventoVenta
 
 export interface ResultadoInventario {
   stock: number
@@ -26,12 +36,14 @@ export interface ResultadoInventario {
   ultimoCosto: number | null
 }
 
-// Promedio móvil: el costo cambia solo cuando entra una compra. Las ventas bajan
-// existencias sin tocar el costo. En un mismo día, las compras van antes que las ventas.
+const RANGO = { compra: 0, ajuste: 1, venta: 2 } as const
+
+// Promedio móvil: el costo cambia solo cuando entran piezas con costo. Las ventas y las
+// salidas bajan existencias sin tocarlo. En un mismo día: compras, ajustes y luego ventas.
 export function calcularInventario(eventos: Evento[]): ResultadoInventario {
   const ordenados = [...eventos].sort((a, b) => {
     if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1
-    if (a.tipo !== b.tipo) return a.tipo === 'compra' ? -1 : 1
+    if (a.tipo !== b.tipo) return RANGO[a.tipo] - RANGO[b.tipo]
     if (a.creado !== b.creado) return a.creado < b.creado ? -1 : 1
     return 0
   })
@@ -40,8 +52,17 @@ export function calcularInventario(eventos: Evento[]): ResultadoInventario {
   let promedio: Decimal | null = null
 
   for (const e of ordenados) {
-    if (e.tipo === 'compra') {
-      const cantidad = new D(e.cantidad)
+    if (e.tipo === 'venta') {
+      stock = stock.minus(e.cantidad)
+      continue
+    }
+    if (e.cantidad < 0) {
+      stock = stock.plus(e.cantidad)
+      continue
+    }
+
+    const cantidad = new D(e.cantidad)
+    if (e.costo_unitario !== null) {
       if (promedio === null || stock.lte(0)) {
         promedio = new D(e.costo_unitario)
       } else {
@@ -50,10 +71,8 @@ export function calcularInventario(eventos: Evento[]): ResultadoInventario {
           .plus(cantidad.times(e.costo_unitario))
           .dividedBy(stock.plus(cantidad))
       }
-      stock = stock.plus(cantidad)
-    } else {
-      stock = stock.minus(e.cantidad)
     }
+    stock = stock.plus(cantidad)
   }
 
   const compras = eventos.filter((e): e is EventoCompra => e.tipo === 'compra')
@@ -68,4 +87,16 @@ export function calcularInventario(eventos: Evento[]): ResultadoInventario {
     costoPromedio: promedio === null ? null : promedio.toDecimalPlaces(4).toNumber(),
     ultimoCosto: costoPromedioPonderado(ultimas),
   }
+}
+
+// Capital en inventario: existencias × costo promedio (solo existencias positivas y con costo)
+export function valorInventario(productos: { stock: number; costoPromedio: number | null }[]): number {
+  return productos
+    .reduce(
+      (acc, p) =>
+        p.stock > 0 && p.costoPromedio !== null ? acc.plus(new D(p.stock).times(p.costoPromedio)) : acc,
+      new D(0),
+    )
+    .toDecimalPlaces(2)
+    .toNumber()
 }

@@ -1,13 +1,16 @@
-
-import type { LocalProduct, VendoraDB } from '@/lib/db'
-import { borrarImpuestosDeListing, listingPayload } from '@/features/listings/listings.repo'
+import type { LocalProduct, VendoraDB } from "@/lib/db";
+import {
+  borrarImpuestosDeListing,
+  listingPayload,
+} from "@/features/listings/listings.repo";
 
 export interface ProductInput {
-  nombre: string
-  sku: string | null
-  codigo_barras: string | null
-  categoria: string | null
-  notas: string | null
+  nombre: string;
+  sku: string | null;
+  codigo_barras: string | null;
+  categoria: string | null;
+  notas: string | null;
+  costo_referencia: number | null;
 }
 
 function aPayload(p: LocalProduct) {
@@ -21,20 +24,21 @@ function aPayload(p: LocalProduct) {
     activo: p.activo,
     deleted_at: p.deleted_at,
     created_at: p.created_at,
-  }
+    costo_referencia: p.costo_referencia ?? null,
+  };
 }
 
 // Convierte categoría y nombre en segmentos de 3 caracteres
 function abreviar(valor: string | null): string {
-  if (!valor) return 'GEN'
+  if (!valor) return "GEN";
 
   const limpio = valor
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
+    .replace(/[^A-Z0-9]/g, "");
 
-  return limpio.slice(0, 3) || 'GEN'
+  return limpio.slice(0, 3) || "GEN";
 }
 
 // Genera el siguiente SKU disponible.
@@ -44,23 +48,23 @@ async function generarSku(
   nombre: string,
   categoria: string | null,
 ): Promise<string> {
-  const prefijo = `${abreviar(categoria)}-${abreviar(nombre)}`
-  const patron = new RegExp(`^${prefijo}-(\\d+)$`)
+  const prefijo = `${abreviar(categoria)}-${abreviar(nombre)}`;
+  const patron = new RegExp(`^${prefijo}-(\\d+)$`);
 
-  const productos = await db.products.toArray()
+  const productos = await db.products.toArray();
 
-  let mayor = 0
+  let mayor = 0;
 
   for (const producto of productos) {
-    if (!producto.sku) continue
+    if (!producto.sku) continue;
 
-    const coincidencia = producto.sku.toUpperCase().match(patron)
-    if (!coincidencia) continue
+    const coincidencia = producto.sku.toUpperCase().match(patron);
+    if (!coincidencia) continue;
 
-    mayor = Math.max(mayor, Number(coincidencia[1]))
+    mayor = Math.max(mayor, Number(coincidencia[1]));
   }
 
-  return `${prefijo}-${String(mayor + 1).padStart(3, '0')}`
+  return `${prefijo}-${String(mayor + 1).padStart(3, "0")}`;
 }
 
 export async function saveProduct(
@@ -68,28 +72,23 @@ export async function saveProduct(
   input: ProductInput,
   id?: string,
 ): Promise<void> {
-  const ahora = new Date().toISOString()
+  const ahora = new Date().toISOString();
 
-  await db.transaction('rw', db.products, db.outbox, async () => {
-    const existente = id ? await db.products.get(id) : undefined
+  await db.transaction("rw", db.products, db.outbox, async () => {
+    const existente = id ? await db.products.get(id) : undefined;
 
     // Si el usuario no captura SKU, se genera automáticamente.
-    const skuCapturado = input.sku?.trim().toUpperCase() || null
+    const skuCapturado = input.sku?.trim().toUpperCase() || null;
 
     const skuFinal =
-      skuCapturado ??
-      await generarSku(db, input.nombre, input.categoria)
+      skuCapturado ?? (await generarSku(db, input.nombre, input.categoria));
 
     // No permitir duplicados, incluso en productos eliminados.
     const repetido = await db.products
-      .filter(
-        (p) =>
-          p.id !== id &&
-          p.sku?.toUpperCase() === skuFinal,
-      )
-      .first()
+      .filter((p) => p.id !== id && p.sku?.toUpperCase() === skuFinal)
+      .first();
 
-    if (repetido) throw new Error('SKU_DUPLICADO')
+    if (repetido) throw new Error("SKU_DUPLICADO");
 
     const fila: LocalProduct = existente
       ? {
@@ -106,74 +105,96 @@ export async function saveProduct(
           deleted_at: null,
           created_at: ahora,
           updated_at: ahora,
-        }
+        };
 
-    await db.products.put(fila)
+    await db.products.put(fila);
 
     await db.outbox.add({
-      table: 'products',
+      table: "products",
       rowId: fila.id,
       payload: aPayload(fila),
       createdAt: ahora,
-    })
-  })
+    });
+  });
 }
 
-export async function deleteProduct(
-  db: VendoraDB,
-  id: string,
-): Promise<void> {
-  const ahora = new Date().toISOString()
+export async function deleteProduct(db: VendoraDB, id: string): Promise<void> {
+  const ahora = new Date().toISOString();
 
   await db.transaction(
-    'rw',
+    "rw",
     db.products,
     db.listings,
     db.listing_taxes,
     db.outbox,
     async () => {
-      const existente = await db.products.get(id)
-      if (!existente) return
+      const existente = await db.products.get(id);
+      if (!existente) return;
 
       const publicaciones = await db.listings
-        .where('product_id')
+        .where("product_id")
         .equals(id)
         .filter((l) => l.deleted_at === null)
-        .toArray()
+        .toArray();
 
       for (const l of publicaciones) {
-        await borrarImpuestosDeListing(db, l.id, ahora)
+        await borrarImpuestosDeListing(db, l.id, ahora);
 
         const borrada = {
           ...l,
           deleted_at: ahora,
           updated_at: ahora,
-        }
+        };
 
-        await db.listings.put(borrada)
+        await db.listings.put(borrada);
 
         await db.outbox.add({
-          table: 'listings',
+          table: "listings",
           rowId: l.id,
           payload: listingPayload(borrada),
           createdAt: ahora,
-        })
+        });
       }
 
       const fila: LocalProduct = {
         ...existente,
         deleted_at: ahora,
         updated_at: ahora,
-      }
+      };
 
-      await db.products.put(fila)
+      await db.products.put(fila);
 
       await db.outbox.add({
-        table: 'products',
+        table: "products",
         rowId: id,
         payload: aPayload(fila),
         createdAt: ahora,
-      })
+      });
     },
-  )
+  );
+}
+
+// Lo usa el formulario de publicación: el costo es del producto, no del canal
+export async function setProductCostoReferencia(
+  db: VendoraDB,
+  id: string,
+  costo: number | null,
+): Promise<void> {
+  const ahora = new Date().toISOString();
+  await db.transaction("rw", db.products, db.outbox, async () => {
+    const existente = await db.products.get(id);
+    if (!existente || (existente.costo_referencia ?? null) === costo) return;
+    const fila: LocalProduct = {
+      ...existente,
+      costo_referencia: costo,
+      updated_at: ahora,
+    };
+    await db.products.put(fila);
+    await db.outbox.add({
+      table: "products",
+      rowId: id,
+      payload: aPayload(fila),
+      createdAt: ahora,
+    });
+  });
 }

@@ -1,5 +1,6 @@
+
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Percent, Info, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Campo } from '@/components/Campo'
 import { parsePorcentaje } from '@/lib/money'
@@ -40,32 +41,68 @@ export function IvaGeneralCard() {
   }
 
   return (
-    <div className="mt-5 rounded-xl border border-neutral-200 p-4">
-      <p className="font-medium">IVA general</p>
-      <p className="mt-1 text-xs text-neutral-500">
-        Base de cálculo: todos los impuestos se sacan sobre el precio ÷ (1 + este %). Cada impuesto usa luego su
-        propia tasa.
-      </p>
-      <div className="mt-3 flex items-end gap-2">
-        <div className="flex-1">
-          <Campo
-            id="iva-general"
-            label="Porcentaje (%)"
-            value={valor}
-            onChange={(v) => {
-              setEdit(v)
-              setMsg(null)
-            }}
-            maxLength={7}
-            inputMode="decimal"
-          />
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* Encabezado */}
+      <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-4">
+        <div className="flex size-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
+          <Percent size={20} />
         </div>
-        <Button onClick={() => void guardar()} disabled={guardando || edit === null} className="h-11">
-          {guardando && <Loader2 className="mr-2 size-4 animate-spin" />}
-          Guardar
-        </Button>
+        <div>
+          <p className="font-bold text-slate-900">IVA general</p>
+          <p className="text-xs text-slate-500">Configuración fiscal de tu cuenta</p>
+        </div>
       </div>
-      {msg && <p className={`mt-2 text-sm ${msg.ok ? 'text-emerald-600' : 'text-red-600'}`}>{msg.texto}</p>}
+
+      <div className="space-y-4 p-4">
+        {/* Información */}
+        <div className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-3">
+          <Info className="mt-0.5 size-4 shrink-0 text-violet-600" />
+          <p className="text-xs leading-relaxed text-slate-600">
+            Base de cálculo: todos los impuestos se sacan sobre el precio ÷ (1 + este %). Cada impuesto usa luego su propia tasa.
+          </p>
+        </div>
+
+        {/* Campo y botón */}
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <Campo
+              id="iva-general"
+              label="Porcentaje (%)"
+              value={valor}
+              onChange={(v) => {
+                setEdit(v)
+                setMsg(null)
+              }}
+              maxLength={7}
+              inputMode="decimal"
+            />
+          </div>
+
+          <Button
+            onClick={() => void guardar()}
+            disabled={guardando || edit === null}
+            className="h-11 shrink-0 rounded-xl bg-gradient-to-r from-[#172554] to-[#6336a9] px-5 font-semibold shadow-sm transition hover:opacity-95"
+          >
+            {guardando && <Loader2 className="mr-2 size-4 animate-spin" />}
+            Guardar
+          </Button>
+        </div>
+
+        {/* Mensaje */}
+        {msg && (
+          <div className={`flex items-center gap-2 rounded-xl p-3 text-sm ${
+            msg.ok
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-rose-50 text-rose-700'
+          }`}>
+            {msg.ok
+              ? <CheckCircle2 className="size-4 shrink-0" />
+              : <AlertCircle className="size-4 shrink-0" />
+            }
+            {msg.texto}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

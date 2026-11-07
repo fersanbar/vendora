@@ -1,5 +1,6 @@
+
 import { useState, type ChangeEvent } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Package, ArrowDownToLine, ArrowUpFromLine, Scale, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Label } from '@/components/ui/label'
@@ -83,27 +84,49 @@ export function AjusteStockForm({ producto, stockActual, costoSugerido, onDone }
   return (
     <div className="max-h-[85dvh] overflow-y-auto">
       <DrawerHeader className="text-left">
-        <DrawerTitle>Ajustar existencias</DrawerTitle>
-        <DrawerDescription>
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#172554] to-[#6336a9] text-white">
+            <Package size={20} />
+          </div>
+          <span className="text-xs font-bold tracking-[0.16em] text-slate-400">
+            VENDORA · INVENTARIO
+          </span>
+        </div>
+        <DrawerTitle className="text-xl font-bold tracking-tight text-slate-900">
+          Ajustar existencias
+        </DrawerTitle>
+        <DrawerDescription className="leading-relaxed text-slate-500">
           {producto.nombre} · hoy tienes {stockActual}. El ajuste queda como un movimiento con fecha y motivo.
         </DrawerDescription>
       </DrawerHeader>
 
-      <div className="space-y-4 px-4 pb-6">
-        <div className="grid grid-cols-3 gap-2">
-          {(['agregar', 'quitar', 'fijar'] as const).map((m) => (
-            <Button
-              key={m}
-              type="button"
-              variant={modo === m ? 'default' : 'outline'}
-              className="h-11"
-              onClick={() => cambiarModo(m)}
-            >
-              {ETIQUETA_MODO[m]}
-            </Button>
-          ))}
+      <div className="space-y-5 px-4 pb-6">
+        {/* Tipo de ajuste */}
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold text-slate-800">Tipo de ajuste</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {(['agregar', 'quitar', 'fijar'] as const).map((m) => (
+              <Button
+                key={m}
+                type="button"
+                variant={modo === m ? 'default' : 'outline'}
+                className={`h-12 rounded-xl font-semibold transition ${
+                  modo === m
+                    ? 'border-transparent bg-gradient-to-r from-[#172554] to-[#6336a9] text-white shadow-sm'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+                onClick={() => cambiarModo(m)}
+              >
+                {m === 'agregar' && <ArrowDownToLine className="mr-1.5 size-4" />}
+                {m === 'quitar' && <ArrowUpFromLine className="mr-1.5 size-4" />}
+                {m === 'fijar' && <Scale className="mr-1.5 size-4" />}
+                {ETIQUETA_MODO[m]}
+              </Button>
+            ))}
+          </div>
         </div>
 
+        {/* Cantidad */}
         <Campo
           id="cantidad"
           label={modo === 'fijar' ? 'Existencias contadas' : 'Cantidad de piezas'}
@@ -113,15 +136,28 @@ export function AjusteStockForm({ producto, stockActual, costoSugerido, onDone }
           inputMode="numeric"
         />
 
+        {/* Vista previa */}
         {nuevoStock !== null && delta !== 0 && (
-          <p className={`text-sm font-medium ${nuevoStock < 0 ? 'text-red-600' : ''}`}>
-            Existencias: {stockActual} → {nuevoStock}
-            {nuevoStock < 0 ? ' (negativas)' : ''}
-          </p>
+          <div className={`rounded-2xl border p-4 ${
+            nuevoStock < 0
+              ? 'border-rose-200 bg-rose-50'
+              : 'border-slate-200 bg-slate-50'
+          }`}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Resultado del ajuste
+            </p>
+            <p className={`mt-2 text-lg font-bold tabular-nums ${
+              nuevoStock < 0 ? 'text-rose-600' : 'text-slate-900'
+            }`}>
+              Existencias: {stockActual} → {nuevoStock}
+              {nuevoStock < 0 ? ' (negativas)' : ''}
+            </p>
+          </div>
         )}
 
+        {/* Costo */}
         {mostrarCosto && (
-          <div className="space-y-1">
+          <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
             <Campo
               id="costo"
               label="Costo por pieza (opcional)"
@@ -130,20 +166,22 @@ export function AjusteStockForm({ producto, stockActual, costoSugerido, onDone }
               maxLength={13}
               inputMode="decimal"
             />
-            <p className="text-xs text-neutral-500">
-              Con costo, estas piezas se mezclan en el costo promedio como una compra. Sin costo, entran al promedio
-              actual sin moverlo.
+            <p className="text-xs leading-relaxed text-slate-500">
+              Con costo, estas piezas se mezclan en el costo promedio como una compra. Sin costo, entran al promedio actual sin moverlo.
             </p>
           </div>
         )}
 
+        {/* Motivo */}
         <div className="space-y-1.5">
-          <Label htmlFor="motivo">Motivo</Label>
+          <Label htmlFor="motivo" className="text-sm font-semibold text-slate-800">
+            Motivo
+          </Label>
           <select
             id="motivo"
             value={motivo}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setMotivo(e.target.value as Motivo)}
-            className="h-11 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm"
+            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
           >
             {MOTIVOS_POR_MODO[modo].map((m) => (
               <option key={m} value={m}>
@@ -153,16 +191,25 @@ export function AjusteStockForm({ producto, stockActual, costoSugerido, onDone }
           </select>
         </div>
 
-        <Campo id="fecha" label="Fecha" type="date" value={fecha} onChange={setFecha} maxLength={10} />
-        <Campo id="notas" label="Notas (opcional)" value={notas} onChange={setNotas} maxLength={1000} />
+        {/* Fecha y notas */}
+        <div className="space-y-4">
+          <Campo id="fecha" label="Fecha" type="date" value={fecha} onChange={setFecha} maxLength={10} />
+          <Campo id="notas" label="Notas (opcional)" value={notas} onChange={setNotas} maxLength={1000} />
+        </div>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
             {error}
-          </p>
+          </div>
         )}
 
-        <Button type="button" onClick={() => void guardar()} disabled={guardando} className="h-11 w-full">
+        <Button
+          type="button"
+          onClick={() => void guardar()}
+          disabled={guardando}
+          className="h-12 w-full rounded-xl bg-gradient-to-r from-[#172554] to-[#6336a9] font-semibold shadow-md shadow-indigo-950/10 transition hover:opacity-95"
+        >
           {guardando && <Loader2 className="mr-2 size-4 animate-spin" />}
           Guardar ajuste
         </Button>

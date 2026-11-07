@@ -7,31 +7,41 @@ export function InventarioTabs() {
   const comprasActivas = pathname.startsWith('/inventario/compras')
 
   const base =
-    'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors'
+    'flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200'
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
+    <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-slate-100 bg-slate-100/80 p-1.5">
       <Link
         to="/inventario"
+        aria-current={!comprasActivas ? 'page' : undefined}
         className={`${base} ${
           !comprasActivas
-            ? 'bg-white text-neutral-900 shadow-sm'
-            : 'text-neutral-500 hover:text-neutral-900'
+            ? 'bg-white text-[#202f69] shadow-sm shadow-slate-200/70'
+            : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
         }`}
       >
-        <Package className="size-4" />
+        <Package
+          className={`size-4 ${
+            !comprasActivas ? 'text-violet-600' : 'text-slate-400'
+          }`}
+        />
         Productos
       </Link>
 
       <Link
         to="/inventario/compras"
+        aria-current={comprasActivas ? 'page' : undefined}
         className={`${base} ${
           comprasActivas
-            ? 'bg-white text-neutral-900 shadow-sm'
-            : 'text-neutral-500 hover:text-neutral-900'
+            ? 'bg-white text-[#202f69] shadow-sm shadow-slate-200/70'
+            : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'
         }`}
       >
-        <ShoppingBasket className="size-4" />
+        <ShoppingBasket
+          className={`size-4 ${
+            comprasActivas ? 'text-violet-600' : 'text-slate-400'
+          }`}
+        />
         Compras
       </Link>
     </div>

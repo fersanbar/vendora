@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { LoginPage } from "@/features/auth/LoginPage";
@@ -7,7 +8,14 @@ import { ChannelsPage } from "@/features/channels/ChannelsPage";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProductsPage } from "@/features/products/ProductsPage";
 import { ProductDetailPage } from "@/features/products/ProductDetailPage";
-import { ChevronRight, Landmark, LogOut, Store } from "lucide-react";
+import {
+  ChevronRight,
+  Landmark,
+  LogOut,
+  Store,
+  UserRound,
+  Settings2,
+} from "lucide-react";
 import { TaxTypesPage } from "@/features/taxes/TaxTypesPage";
 import { PurchasesPage } from "@/features/purchases/PurchasesPage";
 import { PurchaseFormPage } from "@/features/purchases/PurchaseFormPage";
@@ -23,42 +31,114 @@ import { RentabilidadPage } from "@/features/finance/RentabilidadPage";
 
 function MorePage() {
   const { user, signOut } = useAuth();
-  return (
-    <div className="px-4 pt-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Más</h1>
-      <p className="mt-1 text-sm text-neutral-500">{user?.email}</p>
-      <div className="mt-6 divide-y divide-neutral-200 rounded-xl border border-neutral-200">
-        <Link
-          to="/mas/canales"
-          className="flex h-14 items-center justify-between px-4"
-        >
-          <span className="flex items-center gap-3">
-            <Store className="size-5" />
-            Canales de venta
-          </span>
-          <ChevronRight className="size-4 text-neutral-400" />
-        </Link>
 
-        {/* El enlace de Impuestos se movió aquí, donde debe renderingarse el menú */}
-        <Link
-          to="/mas/impuestos"
-          className="flex h-14 items-center justify-between px-4"
-        >
-          <span className="flex items-center gap-3">
-            <Landmark className="size-5" />
-            Impuestos
+  return (
+    <div className="min-h-full bg-slate-50/70 px-4 pb-8 pt-5">
+      {/* Encabezado */}
+      <div className="mb-7">
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+            <Settings2 size={19} />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700">
+            Configuración
           </span>
-          <ChevronRight className="size-4 text-neutral-400" />
-        </Link>
+        </div>
+
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Más
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Administra las preferencias de tu cuenta y negocio.
+        </p>
+      </div>
+
+      {/* Perfil */}
+      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#172554] to-[#6336a9] text-white shadow-sm">
+          <UserRound size={22} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900">
+            Tu cuenta
+          </p>
+          <p className="truncate text-xs text-slate-500">
+            {user?.email}
+          </p>
+        </div>
+      </div>
+
+      {/* Opciones */}
+      <div>
+        <p className="mb-3 px-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+          Administración
+        </p>
+
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <Link
+            to="/mas/canales"
+            className="group flex min-h-[76px] items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 transition-colors group-hover:bg-blue-100">
+                <Store size={20} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800">
+                  Canales de venta
+                </span>
+                <span className="mt-0.5 block text-xs text-slate-500">
+                  Administra tus canales y plataformas
+                </span>
+              </span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-violet-600" />
+          </Link>
+
+          <div className="mx-4 border-t border-slate-100" />
+
+          <Link
+            to="/mas/impuestos"
+            className="group flex min-h-[76px] items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700 transition-colors group-hover:bg-violet-100">
+                <Landmark size={20} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-800">
+                  Impuestos
+                </span>
+                <span className="mt-0.5 block text-xs text-slate-500">
+                  Configura tasas y tipos de impuestos
+                </span>
+              </span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-violet-600" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Sesión */}
+      <div className="mt-7">
+        <p className="mb-3 px-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+          Cuenta
+        </p>
 
         <button
           onClick={signOut}
-          className="flex h-14 w-full items-center gap-3 px-4 text-left text-red-600"
+          className="flex min-h-[58px] w-full items-center gap-3 rounded-2xl border border-rose-100 bg-white px-4 text-left text-sm font-semibold text-rose-600 shadow-sm transition-colors hover:bg-rose-50"
         >
-          <LogOut className="size-5" />
+          <span className="flex size-9 items-center justify-center rounded-xl bg-rose-50">
+            <LogOut size={18} />
+          </span>
           Cerrar sesión
         </button>
       </div>
+
+      <p className="mt-8 text-center text-[11px] font-medium tracking-wide text-slate-400">
+        VENDORA · GESTIÓN DE NEGOCIO
+      </p>
     </div>
   );
 }

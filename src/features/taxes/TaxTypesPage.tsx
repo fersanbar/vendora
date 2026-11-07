@@ -1,7 +1,8 @@
+
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, Plus } from 'lucide-react'
+import { ChevronLeft, Plus, ReceiptText, Percent, Archive, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import type { LocalTaxType } from '@/lib/db'
@@ -29,53 +30,146 @@ export function TaxTypesPage() {
   }
 
   return (
-    <div className="px-4 pb-6 pt-4">
-      <Link to="/mas" className="mb-2 inline-flex items-center text-sm text-neutral-500">
-        <ChevronLeft className="size-4" /> Más
+    <div className="min-h-full bg-slate-50/70 px-4 pb-28 pt-4">
+      {/* Encabezado */}
+      <Link
+        to="/mas"
+        className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition hover:text-[#172554]"
+      >
+        <ChevronLeft className="size-4" />
+        Más opciones
       </Link>
-      <div className="flex items-start justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Impuestos</h1>
+
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#172554] to-[#6336a9] text-white shadow-sm">
+            <ReceiptText size={21} />
+          </div>
+          <div>
+            <p className="text-xs font-bold tracking-[0.16em] text-slate-400">
+              VENDORA
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Impuestos
+            </h1>
+          </div>
+        </div>
         <SyncStatus />
       </div>
-      <p className="mt-1 text-sm text-neutral-500">
-        Tus tipos de impuesto. Los asignas a cada producto al publicarlo en un canal.
-      </p>
-    <IvaGeneralCard />
 
-      <div className="mt-5 space-y-2">
-        {tipos === undefined && <div className="h-16 animate-pulse rounded-xl bg-neutral-100" />}
-        {tipos && tipos.length === 0 && (
-          <p className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">
-            Aún no hay impuestos. Si acabas de actualizar, conéctate a internet para descargar IVA e ISR, o crea uno.
+      <p className="mb-5 text-sm leading-relaxed text-slate-500">
+        Administra tus tipos de impuesto y asigna las tasas correspondientes a
+        tus productos al publicarlos en cada canal.
+      </p>
+
+      {/* IVA general */}
+      <div className="mb-6">
+        <IvaGeneralCard />
+      </div>
+
+      {/* Tipos de impuesto */}
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            Tipos de impuesto
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Tasas configuradas en tu cuenta
           </p>
+        </div>
+        {tipos && (
+          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+            {tipos.length} {tipos.length === 1 ? 'tipo' : 'tipos'}
+          </span>
         )}
+      </div>
+
+      <div className="space-y-2">
+        {tipos === undefined && (
+          <>
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-[76px] animate-pulse rounded-2xl border border-slate-100 bg-white"
+              />
+            ))}
+          </>
+        )}
+
+        {tipos && tipos.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
+            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+              <Percent size={23} />
+            </div>
+            <h3 className="font-semibold text-slate-800">
+              Aún no hay impuestos
+            </h3>
+            <p className="mx-auto mt-1 max-w-xs text-sm leading-relaxed text-slate-500">
+              Si acabas de actualizar, conéctate a internet para descargar IVA
+              e ISR, o crea tu primer tipo de impuesto.
+            </p>
+          </div>
+        )}
+
         {tipos?.map((t) => (
           <button
             key={t.id}
             onClick={() => abrir(t)}
-            className={`flex min-h-14 w-full items-center justify-between rounded-xl border border-neutral-200 px-4 py-2 text-left ${
-              t.activo ? '' : 'text-neutral-400'
+            className={`group flex min-h-[76px] w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-violet-200 hover:shadow-md ${
+              t.activo ? '' : 'opacity-60'
             }`}
           >
-            <span className="font-medium">{t.nombre}</span>
-            <span className="text-xs text-neutral-500">
-              {t.activo ? (t.tasa_pct !== null ? `${t.tasa_pct}%` : 'Sin tasa') : 'Archivado'}
-            </span>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
+                t.activo
+                  ? 'bg-violet-50 text-violet-700'
+                  : 'bg-slate-100 text-slate-400'
+              }`}>
+                {t.activo ? <Percent size={19} /> : <Archive size={19} />}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {t.nombre}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {t.activo ? 'Impuesto activo' : 'Archivado'}
+                </p>
+              </div>
+            </div>
+
+            <div className="ml-3 flex shrink-0 items-center gap-2">
+              <span className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${
+                t.activo
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-slate-100 text-slate-500'
+              }`}>
+                {t.activo
+                  ? (t.tasa_pct !== null ? `${t.tasa_pct}%` : 'Sin tasa')
+                  : 'Archivado'}
+              </span>
+              <ChevronRight className="size-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-violet-500" />
+            </div>
           </button>
         ))}
       </div>
 
+      {/* Botón agregar */}
       <Button
         onClick={() => abrir(null)}
-        className="fixed right-4 z-20 size-14 rounded-full shadow-lg bottom-[calc(4.5rem+env(safe-area-inset-bottom))]"
+        className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 size-14 rounded-2xl bg-gradient-to-r from-[#172554] to-[#6336a9] shadow-lg shadow-indigo-950/20 transition hover:scale-105 hover:opacity-95"
         aria-label="Agregar tipo de impuesto"
       >
         <Plus className="size-6" />
       </Button>
 
+      {/* Formulario */}
       <Drawer open={abierto} onOpenChange={setAbierto}>
         <DrawerContent>
-          <TaxTypeForm key={seleccionado?.id ?? 'nuevo'} tipo={seleccionado} onDone={() => setAbierto(false)} />
+          <TaxTypeForm
+            key={seleccionado?.id ?? 'nuevo'}
+            tipo={seleccionado}
+            onDone={() => setAbierto(false)}
+          />
         </DrawerContent>
       </Drawer>
     </div>

@@ -1,18 +1,38 @@
+
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Archive, ChevronLeft, Loader2, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  Archive,
+  ChevronLeft,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Tag,
+  CheckCircle2,
+  AlertCircle,
+  ReceiptText,
+  Info,
+} from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { LocalExpenseCategory } from '@/lib/db'
 import { useSync } from '@/features/sync/useSync'
-import { createCategory, deleteCategory, setCategoryActive } from './expenses.repo'
+import {
+  createCategory,
+  deleteCategory,
+  setCategoryActive,
+} from './expenses.repo'
 
 export function ExpenseCategoriesPage() {
   const { db, syncNow } = useSync()
+
   const [nuevo, setNuevo] = useState('')
   const [agregando, setAgregando] = useState(false)
   const [confirmando, setConfirmando] = useState<string | null>(null)
+  const [procesando, setProcesando] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const categorias = useLiveQuery(
@@ -25,11 +45,15 @@ export function ExpenseCategoriesPage() {
 
   async function agregar(e: FormEvent) {
     e.preventDefault()
-    if (!nuevo.trim()) return
+
+    const nombre = nuevo.trim()
+    if (!nombre || agregando) return
+
     setAgregando(true)
     setError(null)
+
     try {
-      await createCategory(db, nuevo)
+      await createCategory(db, nombre)
       setNuevo('')
       void syncNow()
     } catch (err) {
@@ -38,20 +62,36 @@ export function ExpenseCategoriesPage() {
           ? 'Ya tienes una categoría con ese nombre.'
           : 'No se pudo agregar la categoría.',
       )
+    } finally {
+      setAgregando(false)
     }
-    setAgregando(false)
   }
 
   async function alternar(c: LocalExpenseCategory) {
+    if (procesando) return
+
     setError(null)
-    await setCategoryActive(db, c.id, !c.activo)
-    void syncNow()
+    setProcesando(c.id)
+
+    try {
+      await setCategoryActive(db, c.id, !c.activo)
+      void syncNow()
+    } catch {
+      setError('No se pudo actualizar la categoría.')
+    } finally {
+      setProcesando(null)
+    }
   }
 
   async function eliminar(c: LocalExpenseCategory) {
+    if (procesando) return
+
     setError(null)
+    setProcesando(c.id)
+
     try {
       await deleteCategory(db, c.id)
+      setConfirmando(null)
       void syncNow()
     } catch (err) {
       setError(
@@ -59,96 +99,369 @@ export function ExpenseCategoriesPage() {
           ? 'Esta categoría ya tiene gastos. Déjala archivada para conservar tu historial.'
           : 'No se pudo eliminar la categoría.',
       )
+    } finally {
+      setProcesando(null)
     }
-    setConfirmando(null)
-  }
-
-  function fila(c: LocalExpenseCategory) {
-    if (confirmando === c.id) {
-      return (
-        <li key={c.id} className="flex h-14 items-center justify-between gap-2 px-4">
-          <span className="truncate text-sm">¿Eliminar {c.nombre}?</span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setConfirmando(null)}>
-              Cancelar
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => void eliminar(c)}>
-              Eliminar
-            </Button>
-          </div>
-        </li>
-      )
-    }
-    return (
-      <li key={c.id} className={`flex h-14 items-center justify-between px-4 ${c.activo ? '' : 'text-neutral-400'}`}>
-        <span>{c.nombre}</span>
-        <div className="flex">
-          <button
-            onClick={() => void alternar(c)}
-            className="flex size-10 items-center justify-center text-neutral-400"
-            aria-label={`${c.activo ? 'Archivar' : 'Restaurar'} ${c.nombre}`}
-          >
-            {c.activo ? <Archive className="size-5" /> : <RotateCcw className="size-5" />}
-          </button>
-          <button
-            onClick={() => setConfirmando(c.id)}
-            className="flex size-10 items-center justify-center text-red-500"
-            aria-label={`Eliminar ${c.nombre}`}
-          >
-            <Trash2 className="size-5" />
-          </button>
-        </div>
-      </li>
-    )
   }
 
   const activas = categorias?.filter((c) => c.activo) ?? []
   const archivadas = categorias?.filter((c) => !c.activo) ?? []
 
-  return (
-    <div className="px-4 pb-6 pt-4">
-      <Link to="/finanzas/gastos" className="mb-2 inline-flex items-center text-sm text-neutral-500">
-        <ChevronLeft className="size-4" /> Gastos
-      </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">Categorías de gasto</h1>
+  function FilaCategoria({
+    categoria,
+  }: {
+    categoria: LocalExpenseCategory
+  }) {
+    const estaConfirmando = confirmando === categoria.id
+    const estaProcesando = procesando === categoria.id
 
-      <form onSubmit={(e) => void agregar(e)} className="mt-5 flex gap-2">
-        <Input
-          value={nuevo}
-          maxLength={60}
-          placeholder="Nueva categoría (ej. Papelería)"
-          className="h-11"
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setNuevo(e.target.value)}
-        />
-        <Button type="submit" disabled={agregando || !nuevo.trim()} className="h-11 px-4">
-          {agregando ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          <span className="sr-only">Agregar categoría</span>
-        </Button>
-      </form>
+    return (
+      <li className="list-none">
+        {estaConfirmando ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+                <Trash2 className="size-4" />
+              </div>
 
-      {error && (
-        <p role="alert" className="mt-3 text-sm text-red-600">
-          {error}
-        </p>
-      )}
+              <div>
+                <p className="text-sm font-semibold text-rose-900">
+                  ¿Eliminar {categoria.nombre}?
+                </p>
+                <p className="mt-0.5 text-xs text-rose-700">
+                  Si tiene gastos asociados, no podrás eliminarla.
+                </p>
+              </div>
+            </div>
 
-      <ul className="mt-5 divide-y divide-neutral-200 rounded-xl border border-neutral-200">
-        {activas.map(fila)}
-        {categorias && activas.length === 0 && (
-          <li className="px-4 py-6 text-center text-sm text-neutral-500">
-            No tienes categorías activas. Si acabas de actualizar, conéctate a internet para descargar las iniciales.
-          </li>
+            <div className="flex gap-2 sm:shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={estaProcesando}
+                className="h-9 flex-1 rounded-lg border-slate-200 bg-white sm:flex-none"
+                onClick={() => setConfirmando(null)}
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={estaProcesando}
+                className="h-9 flex-1 rounded-lg sm:flex-none"
+                onClick={() => void eliminar(categoria)}
+              >
+                {estaProcesando ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  'Eliminar'
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className={`flex min-h-[76px] items-center justify-between gap-3 rounded-xl px-3 py-3 transition hover:bg-slate-50 sm:px-4 ${
+              categoria.activo ? '' : 'opacity-75'
+            }`}
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
+                  categoria.activo
+                    ? 'bg-violet-50 text-violet-600'
+                    : 'bg-slate-100 text-slate-400'
+                }`}
+              >
+                <Tag className="size-5" />
+              </div>
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {categoria.nombre}
+                </p>
+
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      categoria.activo
+                        ? 'bg-emerald-500'
+                        : 'bg-slate-400'
+                    }`}
+                  />
+                  <span className="text-xs text-slate-500">
+                    {categoria.activo ? 'Activa' : 'Archivada'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1">
+              {estaProcesando ? (
+                <div className="flex size-9 items-center justify-center">
+                  <Loader2 className="size-4 animate-spin text-violet-600" />
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void alternar(categoria)}
+                    className={`flex size-9 items-center justify-center rounded-lg transition ${
+                      categoria.activo
+                        ? 'text-slate-400 hover:bg-amber-50 hover:text-amber-600'
+                        : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'
+                    }`}
+                    aria-label={`${
+                      categoria.activo ? 'Archivar' : 'Restaurar'
+                    } ${categoria.nombre}`}
+                    title={categoria.activo ? 'Archivar' : 'Restaurar'}
+                  >
+                    {categoria.activo ? (
+                      <Archive className="size-4" />
+                    ) : (
+                      <RotateCcw className="size-4" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmando(categoria.id)}
+                    className="flex size-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                    aria-label={`Eliminar ${categoria.nombre}`}
+                    title="Eliminar categoría"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         )}
-      </ul>
+      </li>
+    )
+  }
 
-      {archivadas.length > 0 && (
-        <>
-          <h2 className="mt-8 text-sm font-medium text-neutral-500">Archivadas</h2>
-          <ul className="mt-2 divide-y divide-neutral-200 rounded-xl border border-neutral-200">
-            {archivadas.map(fila)}
-          </ul>
-        </>
-      )}
+  return (
+    <div className="min-h-full bg-slate-50/70 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl">
+        {/* Navegación */}
+        <Link
+          to="/finanzas/gastos"
+          className="mb-5 inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition hover:text-violet-600"
+        >
+          <ChevronLeft className="size-4" />
+          Gastos
+        </Link>
+
+        {/* Encabezado */}
+        <div className="mb-6 flex items-start gap-3">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+            <Tag className="size-6" />
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Categorías de gasto
+            </h1>
+            <p className="mt-1 text-sm leading-relaxed text-slate-500">
+              Organiza tus gastos para entender mejor en qué utilizas tu dinero.
+            </p>
+          </div>
+        </div>
+
+        {/* Resumen */}
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-slate-500">
+                Categorías activas
+              </p>
+              <CheckCircle2 className="size-4 text-emerald-500" />
+            </div>
+
+            <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">
+              {categorias === undefined ? '—' : activas.length}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-400">
+              Disponibles para registrar gastos
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-slate-500">
+                Archivadas
+              </p>
+              <Archive className="size-4 text-slate-400" />
+            </div>
+
+            <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">
+              {categorias === undefined ? '—' : archivadas.length}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-400">
+              Conservan su historial
+            </p>
+          </div>
+        </div>
+
+        {/* Agregar categoría */}
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40 sm:p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+              <Plus className="size-4" />
+            </div>
+
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Agregar categoría
+              </h2>
+              <p className="text-xs text-slate-500">
+                Crea una categoría para clasificar tus gastos.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={agregar} className="flex gap-2">
+            <Input
+              value={nuevo}
+              maxLength={60}
+              placeholder="Ej. Papelería, publicidad, servicios..."
+              className="h-11 min-w-0 rounded-xl border-slate-200 bg-slate-50/50 shadow-none focus-visible:border-violet-400 focus-visible:ring-violet-100"
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setNuevo(e.target.value)
+              }
+            />
+
+            <Button
+              type="submit"
+              disabled={agregando || !nuevo.trim()}
+              className="h-11 shrink-0 rounded-xl bg-[#172554] px-4 text-white shadow-sm transition hover:bg-[#263b78]"
+            >
+              {agregando ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Plus className="size-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Agregar</span>
+                </>
+              )}
+              <span className="sr-only">Agregar categoría</span>
+            </Button>
+          </form>
+        </section>
+
+        {/* Error */}
+        {error && (
+          <div
+            role="alert"
+            className="mb-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
+          >
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        {/* Cargando */}
+        {categorias === undefined && (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-12 text-sm text-slate-500">
+            <Loader2 className="size-5 animate-spin text-violet-600" />
+            Cargando categorías...
+          </div>
+        )}
+
+        {/* Activas */}
+        {categorias !== undefined && (
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  Tus categorías
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Disponibles al registrar un gasto.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                {activas.length} activas
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/40">
+              {activas.length > 0 ? (
+                <ul className="divide-y divide-slate-100">
+                  {activas.map((categoria) => (
+                    <FilaCategoria
+                      key={categoria.id}
+                      categoria={categoria}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <div className="px-5 py-10 text-center">
+                  <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+                    <ReceiptText className="size-6" />
+                  </div>
+
+                  <h3 className="mt-3 text-sm font-bold text-slate-900">
+                    No tienes categorías activas
+                  </h3>
+
+                  <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-slate-500">
+                    Agrega una categoría o restaura una archivada para
+                    comenzar a organizar tus gastos.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Archivadas */}
+        {categorias !== undefined && archivadas.length > 0 && (
+          <section className="mt-8">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-700">
+                  Categorías archivadas
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Puedes restaurarlas cuando vuelvas a utilizarlas.
+                </p>
+              </div>
+
+              <span className="rounded-full bg-slate-200/70 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                {archivadas.length}
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-200/40">
+              <ul className="divide-y divide-slate-100">
+                {archivadas.map((categoria) => (
+                  <FilaCategoria
+                    key={categoria.id}
+                    categoria={categoria}
+                  />
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {/* Nota */}
+        <div className="mt-6 flex items-start gap-2 rounded-xl border border-slate-200/80 bg-white/70 p-3">
+          <Info className="mt-0.5 size-4 shrink-0 text-slate-400" />
+          <p className="text-xs leading-relaxed text-slate-500">
+            Si una categoría tiene gastos asociados, no podrás eliminarla.
+            Puedes archivarla para conservar tu historial financiero.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

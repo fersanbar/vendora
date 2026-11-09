@@ -1,6 +1,5 @@
-
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ChevronRight,
   TriangleAlert,
@@ -9,25 +8,26 @@ import {
   Clock3,
   Package,
   ArrowUpRight,
-} from 'lucide-react'
+  Plus,
+  ShoppingCart,
+  Receipt,
+} from "lucide-react";
 
-import { NavegadorMes } from '@/components/NavegadorMes'
+import { NavegadorMes } from "@/components/NavegadorMes";
 import {
   etiquetaMesCorta,
   hoyLocal,
   periodoActual,
   ultimosPeriodos,
-} from '@/lib/dates'
-import { valorInventario } from '@/lib/inventario'
-import { formatMXN } from '@/lib/money'
-import {
-  flujoDelMes,
-  resumenDelMes,
-} from '@/features/finance/calculos'
-import { useDatosFinancieros } from '@/features/finance/useDatosFinancieros'
-import { useProductStats } from '@/features/purchases/useProductStats'
-import { SyncStatus } from '@/features/sync/SyncStatus'
-import { GraficaUtilidad } from './GraficaUtilidad'
+} from "@/lib/dates";
+import { valorInventario } from "@/lib/inventario";
+import { formatMXN } from "@/lib/money";
+import { CalendarioFinanciero } from "@/features/finance/components/CalendarioFinanciero";
+import { flujoDelMes, resumenDelMes } from "@/features/finance/calculos";
+import { useDatosFinancieros } from "@/features/finance/useDatosFinancieros";
+import { useProductStats } from "@/features/purchases/useProductStats";
+import { SyncStatus } from "@/features/sync/SyncStatus";
+import { GraficaUtilidad } from "./GraficaUtilidad";
 
 function Tarjeta({
   etiqueta,
@@ -36,11 +36,11 @@ function Tarjeta({
   icono: Icono,
   negativo = false,
 }: {
-  etiqueta: string
-  valor: string
-  nota?: string
-  icono: typeof Wallet
-  negativo?: boolean
+  etiqueta: string;
+  valor: string;
+  nota?: string;
+  icono: typeof Wallet;
+  negativo?: boolean;
 }) {
   return (
     <div className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -53,23 +53,22 @@ function Tarjeta({
 
       <p
         className={`mt-3 text-xl font-bold tracking-tight ${
-          negativo ? 'text-rose-600' : 'text-slate-900'
+          negativo ? "text-rose-600" : "text-slate-900"
         }`}
       >
         {valor}
       </p>
 
-      {nota && (
-        <p className="mt-1 text-xs text-slate-400">{nota}</p>
-      )}
+      {nota && <p className="mt-1 text-xs text-slate-400">{nota}</p>}
     </div>
-  )
+  );
 }
 
 export function InicioPage() {
-  const datos = useDatosFinancieros()
-  const stats = useProductStats()
-  const [periodo, setPeriodo] = useState(periodoActual())
+  const datos = useDatosFinancieros();
+  const stats = useProductStats();
+  const [periodo, setPeriodo] = useState(periodoActual());
+  const [accionesAbiertas, setAccionesAbiertas] = useState(false);
 
   if (datos === undefined) {
     return (
@@ -82,37 +81,37 @@ export function InicioPage() {
           <div className="h-28 animate-pulse rounded-2xl bg-slate-100" />
         </div>
       </div>
-    )
+    );
   }
 
-  const resumen = resumenDelMes(datos, periodo)
-  const flujo = flujoDelMes(datos, periodo)
-  const valores = stats ? Array.from(stats.values()) : []
-  const capital = valorInventario(valores)
-  const negativas = valores.filter((s) => s.stock < 0).length
-  const hoy = hoyLocal()
+  const resumen = resumenDelMes(datos, periodo);
+  const flujo = flujoDelMes(datos, periodo);
+  const valores = stats ? Array.from(stats.values()) : [];
+  const capital = valorInventario(valores);
+  const negativas = valores.filter((s) => s.stock < 0).length;
+  const hoy = hoyLocal();
 
   const vencidas = datos.ventas.filter(
     (v) =>
-      v.estado_cobro === 'pendiente' &&
+      v.estado_cobro === "pendiente" &&
       v.fecha_liberacion_estimada !== null &&
       v.fecha_liberacion_estimada < hoy,
-  ).length
+  ).length;
 
   const serie = ultimosPeriodos(periodo, 6).map((p) => ({
     mes: etiquetaMesCorta(p),
     utilidad: resumenDelMes(datos, p).utilidadNeta,
-  }))
+  }));
 
   const hayDatos =
     datos.ventas.length +
       datos.compras.length +
       datos.gastos.length +
       datos.anuncios.length >
-    0
+    0;
 
-  const utilidadNegativa = resumen.utilidadNeta < 0
-  const flujoNegativo = flujo.flujoNeto < 0
+  const utilidadNegativa = resumen.utilidadNeta < 0;
+  const flujoNegativo = flujo.flujoNeto < 0;
 
   return (
     <div className="min-h-full bg-slate-50/70 px-4 pb-8 pt-5">
@@ -125,20 +124,13 @@ export function InicioPage() {
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
             Inicio
           </h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Resumen de tu negocio
-          </p>
+          <p className="mt-0.5 text-sm text-slate-500">Resumen de tu negocio</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
           <SyncStatus />
         </div>
       </header>
-
-      {/* Selector de periodo */}
-      <div className="mt-6">
-        <NavegadorMes periodo={periodo} onChange={setPeriodo} />
-      </div>
 
       {/* Estado vacío */}
       {!hayDatos && (
@@ -182,10 +174,10 @@ export function InicioPage() {
               <span className="flex items-center gap-2">
                 <TriangleAlert className="size-4 shrink-0" />
                 <span>
-                  {vencidas}{' '}
+                  {vencidas}{" "}
                   {vencidas === 1
-                    ? 'venta debió liberarse y sigue pendiente'
-                    : 'ventas debieron liberarse y siguen pendientes'}
+                    ? "venta debió liberarse y sigue pendiente"
+                    : "ventas debieron liberarse y siguen pendientes"}
                 </span>
               </span>
               <ChevronRight className="size-4 shrink-0" />
@@ -200,10 +192,10 @@ export function InicioPage() {
               <span className="flex items-center gap-2">
                 <TriangleAlert className="size-4 shrink-0" />
                 <span>
-                  {negativas}{' '}
+                  {negativas}{" "}
                   {negativas === 1
-                    ? 'producto con existencias negativas'
-                    : 'productos con existencias negativas'}
+                    ? "producto con existencias negativas"
+                    : "productos con existencias negativas"}
                 </span>
               </span>
               <ChevronRight className="size-4 shrink-0" />
@@ -211,6 +203,34 @@ export function InicioPage() {
           )}
         </div>
       )}
+
+      {/* Calendario financiero */}
+      <CalendarioFinanciero datos={datos} />
+
+      {/* Gráfica */}
+      <section className="mt-6 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">
+              Evolución de utilidad
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">Últimos 6 meses</p>
+          </div>
+
+          <div className="flex size-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+            <TrendingUp className="size-[18px]" />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <GraficaUtilidad datos={serie} />
+        </div>
+      </section>
+
+      {/* Análisis mensual */}
+      <section>
+        <NavegadorMes periodo={periodo} onChange={setPeriodo} />
+      </section>
 
       {/* Utilidad principal */}
       <section className="relative mt-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#172554] via-[#202f69] to-[#6336a9] p-5 text-white shadow-lg shadow-indigo-950/10">
@@ -229,7 +249,7 @@ export function InicioPage() {
 
           <p
             className={`mt-4 text-3xl font-bold tracking-tight ${
-              utilidadNegativa ? 'text-rose-300' : 'text-white'
+              utilidadNegativa ? "text-rose-300" : "text-white"
             }`}
           >
             {formatMXN(resumen.utilidadNeta)}
@@ -240,16 +260,14 @@ export function InicioPage() {
               Resultado del periodo
             </span>
             {utilidadNegativa && (
-              <span className="text-xs text-rose-200">
-                Resultado negativo
-              </span>
+              <span className="text-xs text-rose-200">Resultado negativo</span>
             )}
           </div>
 
           {resumen.ventasSinCosto > 0 && (
             <p className="mt-3 text-xs text-indigo-200">
-              {resumen.ventasSinCosto} ventas con costo incompleto no entran
-              en el cálculo.
+              {resumen.ventasSinCosto} ventas con costo incompleto no entran en
+              el cálculo.
             </p>
           )}
         </div>
@@ -261,9 +279,7 @@ export function InicioPage() {
           <h2 className="text-sm font-bold text-slate-900">
             Resumen financiero
           </h2>
-          <span className="text-xs text-slate-400">
-            Este periodo
-          </span>
+          <span className="text-xs text-slate-400">Este periodo</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -288,28 +304,6 @@ export function InicioPage() {
             valor={formatMXN(capital)}
             icono={Package}
           />
-        </div>
-      </section>
-
-      {/* Gráfica */}
-      <section className="mt-6 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900">
-              Evolución de utilidad
-            </h2>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Últimos 6 meses
-            </p>
-          </div>
-
-          <div className="flex size-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-            <TrendingUp className="size-[18px]" />
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <GraficaUtilidad datos={serie} />
         </div>
       </section>
 
@@ -363,6 +357,62 @@ export function InicioPage() {
           </Link>
         </div>
       </section>
+
+      {/* Botón flotante de acciones rápidas */}
+      {accionesAbiertas && (
+        <button
+          type="button"
+          aria-label="Cerrar menú de acciones"
+          onClick={() => setAccionesAbiertas(false)}
+          className="fixed inset-0 z-40 cursor-default bg-slate-900/10 backdrop-blur-[1px]"
+        />
+      )}
+
+      <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-3 md:bottom-6 md:right-6">
+        {/* Opciones */}
+        <div
+          className={`flex flex-col items-end gap-2 transition-all duration-200 ${
+            accionesAbiertas
+              ? "translate-y-0 scale-100 opacity-100"
+              : "pointer-events-none translate-y-3 scale-95 opacity-0"
+          }`}
+        >
+          <Link
+            to="/ventas/nueva"
+            onClick={() => setAccionesAbiertas(false)}
+            tabIndex={accionesAbiertas ? 0 : -1}
+            className="flex h-11 w-28 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 shadow-lg transition hover:border-violet-200 hover:bg-violet-50"
+          >
+            <Receipt className="size-4 text-violet-700" />
+            Venta
+          </Link>
+
+          <Link
+            to="/inventario/compras/nueva"
+            onClick={() => setAccionesAbiertas(false)}
+            tabIndex={accionesAbiertas ? 0 : -1}
+            className="flex h-11 w-28 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 shadow-lg transition hover:border-blue-200 hover:bg-blue-50"
+          >
+            <ShoppingCart className="size-4 text-blue-700" />
+            Compra
+          </Link>
+        </div>
+
+        {/* Botón principal */}
+        <button
+          type="button"
+          onClick={() => setAccionesAbiertas((abierto) => !abierto)}
+          aria-label={
+            accionesAbiertas ? "Cerrar acciones" : "Agregar compra o venta"
+          }
+          aria-expanded={accionesAbiertas}
+          className={`flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-[#172554] to-[#6336a9] text-white shadow-xl shadow-indigo-950/25 transition-all duration-200 hover:scale-105 hover:shadow-2xl active:scale-95 ${
+            accionesAbiertas ? "rotate-45" : "rotate-0"
+          }`}
+        >
+          <Plus className="size-7" />
+        </button>
+      </div>
     </div>
-  )
+  );
 }
